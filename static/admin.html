@@ -524,9 +524,9 @@
             }
         }
 
-        async function deleteApartment(apartmentUuid) {
+        async function deleteApartment(apartmentId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/uuid/${apartmentUuid}`, {
+                const response = await fetch(`${API_BASE_URL}/${apartmentId}`, {
                     method: 'DELETE'
                 });
 
@@ -571,7 +571,7 @@
                             <button class="btn btn-warning btn-sm" onclick="editApartment('${apartment.apartment_id}', '${apartment.apartment_name}', '${apartment.apartment_address}', '${apartment.admin_email}')">
                                 Edit
                             </button>
-                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('${apartment.id}')">
+                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('${apartment.apartment_id}')">
                                 Delete
                             </button>
                         </div>
