@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>FlatFund Admin - Apartment Management</title>
     <style>
         * {
@@ -432,7 +435,10 @@
     </div>
 
     <script>
-        console.log("Admin UI loaded"); const API_BASE_URL = 'https://flatfund.duckdns.org/api/v1/apartments';
+        console.log("Admin UI loaded - Version 2.0");
+        const API_BASE_URL = 'https://flatfund.duckdns.org/api/v1/apartments';
+        console.log('API_BASE_URL defined as:', API_BASE_URL);
+        console.log('API_BASE_URL ends with slash?', API_BASE_URL.endsWith('/'));
 
         // Utility functions
         function showAlert(message, type = 'info') {
@@ -526,7 +532,11 @@
 
         async function deleteApartment(apartmentId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/${apartmentId}`, {
+                console.log('deleteApartment called with apartmentId:', apartmentId);
+                const deleteUrl = `${API_BASE_URL}/${apartmentId}`;
+                console.log('DELETE URL:', deleteUrl);
+                
+                const response = await fetch(deleteUrl, {
                     method: 'DELETE'
                 });
 
@@ -558,7 +568,10 @@
                 return;
             }
 
-            tbody.innerHTML = apartments.map((apartment, index) => `
+            tbody.innerHTML = apartments.map((apartment, index) => {
+                console.log(`Apartment ${index}:`, apartment);
+                console.log(`Apartment ID for buttons: ${apartment.apartment_id}`);
+                return `
                 <tr>
                     <td><strong>${index + 1}</strong></td>
                     <td><span class="apartment-id">${apartment.apartment_id}</span></td>
@@ -577,7 +590,8 @@
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function editApartment(apartmentId, name, address, email) {
@@ -594,6 +608,7 @@
         }
 
         function confirmDelete(apartmentId) {
+            console.log('confirmDelete called with apartmentId:', apartmentId);
             if (confirm(`Are you sure you want to delete apartment ${apartmentId}? This action cannot be undone.`)) {
                 handleDelete(apartmentId);
             }
