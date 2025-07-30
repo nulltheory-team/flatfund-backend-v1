@@ -2,8 +2,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from . import models, schemas
 from fastapi import HTTPException
-import random
-import string
 import re
 
 
@@ -60,9 +58,22 @@ def generate_apartment_id(db: Session, apartment_name: str) -> str:
     return f"{base_id}-{next_num:03d}"
 
 
+def get_last_apartment_id(db: Session) -> str:
+    """Get the next apartment ID in sequence (deprecated - use generate_apartment_id instead)"""
+    last = db.query(models.Apartment).order_by(desc(models.Apartment.apartment_id)).first()
+    
+    if last:
+        try:
+            num = int(last.apartment_id.split('-')[1]) + 1
+            return f"APT-{num:04d}"  # Format as APT-0001
+        except (ValueError, IndexError):
+            pass
+    return "APT-0001"
+
+
 def create_apartment(db: Session, apartment: schemas.ApartmentCreate):
-    """Create a new apartment with smart apartment_id generation"""
-    # Generate unique apartment_id
+    """Create a new apartment with auto-generated apartment_id"""
+    # Generate unique apartment_id based on apartment name
     apartment_id = generate_apartment_id(db, apartment.apartment_name)
     
     db_apartment = models.Apartment(
@@ -70,14 +81,11 @@ def create_apartment(db: Session, apartment: schemas.ApartmentCreate):
         apartment_name=apartment.apartment_name,
         apartment_address=apartment.apartment_address,
         admin_email=apartment.admin_email,
-        total_floors=apartment.total_floors,
-        total_flats=apartment.total_flats,
         water_bill_mode=apartment.water_bill_mode
     )
     db.add(db_apartment)
     db.commit()
     db.refresh(db_apartment)
-    
     return db_apartment
 
 
@@ -86,20 +94,15 @@ def get_all_apartments(db: Session):
     return db.query(models.Apartment).all()
 
 
-def get_apartment_by_apartment_id(db: Session, apartment_id: str):
-    """Get apartment by apartment_id (string)"""
+def get_apartment_by_id(db: Session, apartment_id: str):
+    """Get apartment by apartment_id"""
     return db.query(models.Apartment).filter(models.Apartment.apartment_id == apartment_id).first()
 
 
-def get_apartment_by_uuid(db: Session, apartment_uuid: str):
-    """Get apartment by apartment_uuid"""
-    return db.query(models.Apartment).filter(models.Apartment.apartment_uuid == apartment_uuid).first()
-
-
 def update_apartment(db: Session, apartment_id: str, apartment_update: schemas.ApartmentUpdate):
-    """Update apartment by apartment_id (string)"""
+    """Update apartment by apartment_id"""
     # First check if apartment exists
-    apartment = get_apartment_by_apartment_id(db, apartment_id)
+    apartment = get_apartment_by_id(db, apartment_id)
     if not apartment:
         return None
     
@@ -108,6 +111,15 @@ def update_apartment(db: Session, apartment_id: str, apartment_update: schemas.A
     
     if not update_data:
         return apartment  # No updates to make
+    
+    # If apartment name is being updated, regenerate apartment_id
+    if 'apartment_name' in update_data:
+        new_apartment_id = generate_apartment_id(db, update_data['apartment_name'])
+        # Only update if the new ID is different and doesn't already exist
+        if new_apartment_id != apartment.apartment_id:
+            existing = get_apartment_by_id(db, new_apartment_id)
+            if not existing:
+                update_data['apartment_id'] = new_apartment_id
     
     # Update the apartment
     for key, value in update_data.items():
@@ -118,25 +130,32 @@ def update_apartment(db: Session, apartment_id: str, apartment_update: schemas.A
     return apartment
 
 
-def delete_apartment_by_id(db: Session, apartment_id: str):
-    """Delete apartment by apartment_id (string)"""
-    # First check if apartment exists
-    apartment = get_apartment_by_apartment_id(db, apartment_id)
-    if not apartment:
-        return None
-    
-    db.delete(apartment)
-    db.commit()
-    return apartment
+def get_apartment_by_uuid(db: Session, apartment_uuid: str):
+    """Get apartment by UUID"""
+    return db.query(models.Apartment).filter(models.Apartment.id == apartment_uuid).first()
 
 
 def delete_apartment_by_uuid(db: Session, apartment_uuid: str):
-    """Delete apartment by apartment_uuid"""
+    """Delete apartment by UUID"""
     # First check if apartment exists
     apartment = get_apartment_by_uuid(db, apartment_uuid)
     if not apartment:
         return None
     
+    # Delete the apartment
+    db.delete(apartment)
+    db.commit()
+    return apartment
+
+
+def delete_apartment(db: Session, apartment_id: str):
+    """Delete apartment by apartment_id (legacy - use delete_apartment_by_uuid for consistency)"""
+    # First check if apartment exists
+    apartment = get_apartment_by_id(db, apartment_id)
+    if not apartment:
+        return None
+    
+    # Delete the apartment
     db.delete(apartment)
     db.commit()
     return apartment

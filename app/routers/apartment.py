@@ -26,7 +26,7 @@ def get_apartments(db: Session = Depends(database.get_db)):
 @router.get("/{apartment_id}", response_model=schemas.ApartmentOut)
 def get_apartment(apartment_id: str, db: Session = Depends(database.get_db)):
     """Get apartment by apartment_id"""
-    apartment = crud.get_apartment_by_id(db, apartment_id)
+    apartment = crud.get_apartment_by_apartment_id(db, apartment_id)
     if not apartment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -65,8 +65,8 @@ def delete_apartment_by_uuid(apartment_uuid: str, db: Session = Depends(database
 
 @router.delete("/{apartment_id}", response_model=schemas.ApartmentDeleted)
 def delete_apartment(apartment_id: str, db: Session = Depends(database.get_db)):
-    """Delete apartment by apartment_id (legacy endpoint)"""
-    apartment = crud.delete_apartment(db, apartment_id)
+    """Delete apartment by apartment_id"""
+    apartment = crud.delete_apartment_by_id(db, apartment_id)
     if not apartment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

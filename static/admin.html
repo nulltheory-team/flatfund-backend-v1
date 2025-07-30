@@ -82,7 +82,8 @@
         }
 
         input[type="text"],
-        input[type="email"] {
+        input[type="email"],
+        input[type="number"] {
             width: 100%;
             padding: 0.75rem;
             border: 2px solid #e1e5e9;
@@ -92,7 +93,8 @@
         }
 
         input[type="text"]:focus,
-        input[type="email"]:focus {
+        input[type="email"]:focus,
+        input[type="number"]:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -373,9 +375,32 @@
                         <input type="text" id="apartmentAddress" name="apartment_address" required>
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="totalFloors">Total Floors</label>
+                        <input type="number" id="totalFloors" name="total_floors" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="totalFlats">Total Flats</label>
+                        <input type="number" id="totalFlats" name="total_flats" min="1">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="adminEmail">Admin Email *</label>
                     <input type="email" id="adminEmail" name="admin_email" required>
+                </div>
+                <div class="form-group">
+                    <label>Water Billing Mode *</label>
+                    <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="radio" name="water_bill_mode" value="0" checked style="margin-right: 0.5rem;">
+                            <span>📊 Meter Based</span>
+                        </label>
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="radio" name="water_bill_mode" value="1" style="margin-right: 0.5rem;">
+                            <span>🚛 Tanker Based</span>
+                        </label>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary">
                     <span id="submitText">Add Apartment</span>
@@ -391,17 +416,22 @@
                     <thead>
                         <tr>
                             <th>S.No</th>
+                            <th>ID</th>
                             <th>Apt ID</th>
-                            <th>Apt UUID</th>
+                            <th>UUID</th>
                             <th>Name</th>
                             <th>Address</th>
                             <th>Admin Email</th>
+                            <th>Floors</th>
+                            <th>Flats</th>
+                            <th>Water Billing</th>
+                            <th>Created</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="apartmentsTableBody">
                         <tr>
-                            <td colspan="5" class="loading">Loading apartments...</td>
+                            <td colspan="12" class="loading">Loading apartments...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -427,8 +457,29 @@
                     <input type="text" id="editApartmentAddress" name="apartment_address">
                 </div>
                 <div class="form-group">
+                    <label for="editTotalFloors">Total Floors</label>
+                    <input type="number" id="editTotalFloors" name="total_floors" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="editTotalFlats">Total Flats</label>
+                    <input type="number" id="editTotalFlats" name="total_flats" min="1">
+                </div>
+                <div class="form-group">
                     <label for="editAdminEmail">Admin Email</label>
                     <input type="email" id="editAdminEmail" name="admin_email">
+                </div>
+                <div class="form-group">
+                    <label>Water Billing Mode</label>
+                    <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="radio" name="water_bill_mode" value="0" id="editWaterMeter" style="margin-right: 0.5rem;">
+                            <span>📊 Meter Based</span>
+                        </label>
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="radio" name="water_bill_mode" value="1" id="editWaterTanker" style="margin-right: 0.5rem;">
+                            <span>🚛 Tanker Based</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">Update Apartment</button>
@@ -440,8 +491,31 @@
 
     <script>
         console.log("Admin UI loaded - Version 2.0");
-        const API_BASE_URL = 'https://flatfund.duckdns.org/api/v1/apartments';
-        console.log('API_BASE_URL defined as:', API_BASE_URL);
+        
+        // Intelligent environment detection
+        function getApiBaseUrl() {
+            const hostname = window.location.hostname;
+            const protocol = window.location.protocol;
+            
+            console.log('Current hostname:', hostname);
+            console.log('Current protocol:', protocol);
+            
+            // If accessing from localhost or 127.0.0.1, use local API
+            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.endsWith('.local')) {
+                return 'http://127.0.0.1:8000/api/v1/apartments';
+            }
+            
+            // If accessing from production domain, use production API
+            if (hostname.includes('flatfund.duckdns.org') || hostname.includes('flatfund')) {
+                return 'https://flatfund.duckdns.org/api/v1/apartments';
+            }
+            
+            // Default to local for any other case (file:// protocol, etc.)
+            return 'http://127.0.0.1:8000/api/v1/apartments';
+        }
+        
+        const API_BASE_URL = getApiBaseUrl();
+        console.log('API_BASE_URL auto-detected as:', API_BASE_URL);
         console.log('API_BASE_URL ends with slash?', API_BASE_URL.endsWith('/'));
 
         // Utility functions
@@ -563,7 +637,7 @@
             if (apartments.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="empty-state">
+                        <td colspan="12" class="empty-state">
                             <h3>No apartments found</h3>
                             <p>Add your first apartment using the form above.</p>
                         </td>
@@ -575,17 +649,24 @@
             tbody.innerHTML = apartments.map((apartment, index) => {
                 console.log(`Apartment ${index}:`, apartment);
                 console.log(`Apartment ID for buttons: ${apartment.apartment_id}`);
+                const waterBillingMode = apartment.water_bill_mode === 0 ? '📊 Meter' : '🚛 Tanker';
+                const createdAt = new Date(apartment.created_at).toLocaleDateString();
                 return `
                 <tr>
                     <td><strong>${index + 1}</strong></td>
+                    <td><span class="apartment-id">${apartment.id}</span></td>
                     <td><span class="apartment-id">${apartment.apartment_id}</span></td>
-                    <td><small class="uuid">${apartment.id}</small></td>
+                    <td><small class="uuid">${apartment.apartment_uuid}</small></td>
                     <td>${apartment.apartment_name}</td>
                     <td class="address-cell">${apartment.apartment_address}</td>
                     <td>${apartment.admin_email}</td>
+                    <td>${apartment.total_floors || '-'}</td>
+                    <td>${apartment.total_flats || '-'}</td>
+                    <td>${waterBillingMode}</td>
+                    <td>${createdAt}</td>
                     <td>
                         <div class="actions">
-                            <button class="btn btn-warning btn-sm" onclick="editApartment('${apartment.apartment_id}', '${apartment.apartment_name}', '${apartment.apartment_address}', '${apartment.admin_email}')">
+                            <button class="btn btn-warning btn-sm" onclick="editApartment('${apartment.apartment_id}', '${apartment.apartment_name}', '${apartment.apartment_address}', '${apartment.admin_email}', ${apartment.total_floors || 'null'}, ${apartment.total_flats || 'null'}, ${apartment.water_bill_mode})">
                                 Edit
                             </button>
                             <button class="btn btn-danger btn-sm" onclick="confirmDelete('${apartment.apartment_id}')">
@@ -598,11 +679,21 @@
             }).join('');
         }
 
-        function editApartment(apartmentId, name, address, email) {
+        function editApartment(apartmentId, name, address, email, totalFloors, totalFlats, waterBillMode) {
             document.getElementById('editApartmentId').value = apartmentId;
             document.getElementById('editApartmentName').value = name;
             document.getElementById('editApartmentAddress').value = address;
             document.getElementById('editAdminEmail').value = email;
+            document.getElementById('editTotalFloors').value = totalFloors === null ? '' : totalFloors;
+            document.getElementById('editTotalFlats').value = totalFlats === null ? '' : totalFlats;
+            
+            // Set the correct radio button for water billing mode
+            if (waterBillMode === 0) {
+                document.getElementById('editWaterMeter').checked = true;
+            } else {
+                document.getElementById('editWaterTanker').checked = true;
+            }
+            
             document.getElementById('editModal').style.display = 'block';
         }
 
@@ -625,6 +716,17 @@
 
             const formData = new FormData(event.target);
             const apartmentData = Object.fromEntries(formData.entries());
+            
+            // Convert fields to correct types
+            if (apartmentData.water_bill_mode) {
+                apartmentData.water_bill_mode = parseInt(apartmentData.water_bill_mode);
+            }
+            if (apartmentData.total_floors) {
+                apartmentData.total_floors = parseInt(apartmentData.total_floors);
+            }
+            if (apartmentData.total_flats) {
+                apartmentData.total_flats = parseInt(apartmentData.total_flats);
+            }
 
             try {
                 await createApartment(apartmentData);
@@ -648,7 +750,13 @@
             // Only include fields that have values
             for (const [key, value] of formData.entries()) {
                 if (value.trim() !== '' && key !== 'editApartmentId') {
-                    updateData[key] = value;
+                    if (key === 'water_bill_mode') {
+                        updateData[key] = parseInt(value);
+                    } else if (key === 'total_floors' || key === 'total_flats') {
+                        updateData[key] = parseInt(value);
+                    } else {
+                        updateData[key] = value;
+                    }
                 }
             }
 
@@ -680,7 +788,7 @@
                 showAlert('Failed to load apartments. Please refresh the page.', 'error');
                 document.getElementById('apartmentsTableBody').innerHTML = `
                     <tr>
-                        <td colspan="5" class="empty-state">
+                        <td colspan="12" class="empty-state">
                             <h3>Error loading apartments</h3>
                             <p>Please check your connection and try again.</p>
                         </td>
