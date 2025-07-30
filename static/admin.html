@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlatFund Admin - Apartment Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-section h2 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .table-section h2 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 1rem;
+            color: #495057;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h3 {
+            color: #667eea;
+        }
+
+        .close {
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .apartment-id {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .uuid {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 0.25rem 0.4rem;
+            border-radius: 3px;
+            color: #6c757d;
+            font-size: 0.75rem;
+            display: block;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .address-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .address-cell:hover {
+            white-space: normal;
+            overflow: visible;
+            background: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 10;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            table {
+                font-size: 0.875rem;
+            }
+
+            th,
+            td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 FlatFund Admin</h1>
+            <p>Apartment Management System</p>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertContainer"></div>
+
+        <!-- Add Apartment Form -->
+        <div class="card form-section">
+            <h2>Add New Apartment</h2>
+            <div class="alert alert-info">
+                <strong>ℹ️ Auto-Generated ID:</strong> The apartment ID will be automatically generated based on the apartment name (e.g., "R and P Kalpavriksha" → "RPKALP" or "RPKALP-001" if similar names exist).
+            </div>
+            <form id="apartmentForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="apartmentName">Apartment Name *</label>
+                        <input type="text" id="apartmentName" name="apartment_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="apartmentAddress">Apartment Address *</label>
+                        <input type="text" id="apartmentAddress" name="apartment_address" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="adminEmail">Admin Email *</label>
+                    <input type="email" id="adminEmail" name="admin_email" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <span id="submitText">Add Apartment</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Apartments Table -->
+        <div class="card table-section">
+            <h2>All Apartments</h2>
+            <div class="table-container">
+                <table id="apartmentsTable">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Apt ID</th>
+                            <th>Apt UUID</th>
+                            <th>Name</th>
+                            <th>Address</th>
+                            <th>Admin Email</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="apartmentsTableBody">
+                        <tr>
+                            <td colspan="5" class="loading">Loading apartments...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Apartment</h3>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editApartmentId">
+                <div class="form-group">
+                    <label for="editApartmentName">Apartment Name</label>
+                    <input type="text" id="editApartmentName" name="apartment_name">
+                </div>
+                <div class="form-group">
+                    <label for="editApartmentAddress">Apartment Address</label>
+                    <input type="text" id="editApartmentAddress" name="apartment_address">
+                </div>
+                <div class="form-group">
+                    <label for="editAdminEmail">Admin Email</label>
+                    <input type="email" id="editAdminEmail" name="admin_email">
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Update Apartment</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        console.log("Admin UI loaded"); const API_BASE_URL = 'https://flatfund.duckdns.org/api/v1/apartments/';
+
+        // Utility functions
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            
+            alertContainer.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+
+        function clearForm() {
+            document.getElementById('apartmentForm').reset();
+        }
+
+        function setLoading(isLoading, elementId = 'submitText', loadingText = 'Loading...') {
+            const element = document.getElementById(elementId);
+            if (isLoading) {
+                element.textContent = loadingText;
+            } else {
+                element.textContent = element.id === 'submitText' ? 'Add Apartment' : 'Update Apartment';
+            }
+        }
+
+        // API calls
+        async function createApartment(apartmentData) {
+            try {
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(apartmentData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to create apartment');
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error creating apartment:', error);
+                throw error;
+            }
+        }
+
+        async function fetchApartments() {
+            console.log("Fetching apartments from:", API_BASE_URL);
+            console.log("Actual URL being fetched:", API_BASE_URL);
+            try {
+                const url = API_BASE_URL + "?t=" + Date.now();
+                console.log("Final URL with timestamp:", url);
+                const response = await fetch(url);
+                console.log("Response status:", response.status, response.statusText);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch apartments');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching apartments:', error);
+                throw error;
+            }
+        }
+
+        async function updateApartment(apartmentId, updateData) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${apartmentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updateData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to update apartment');
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error updating apartment:', error);
+                throw error;
+            }
+        }
+
+        async function deleteApartment(apartmentId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${apartmentId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to delete apartment');
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error deleting apartment:', error);
+                throw error;
+            }
+        }
+
+        // UI functions
+        function renderApartments(apartments) {
+            const tbody = document.getElementById('apartmentsTableBody');
+            
+            if (apartments.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <h3>No apartments found</h3>
+                            <p>Add your first apartment using the form above.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = apartments.map((apartment, index) => `
+                <tr>
+                    <td><strong>${index + 1}</strong></td>
+                    <td><span class="apartment-id">${apartment.apartment_id}</span></td>
+                    <td><small class="uuid">${apartment.id}</small></td>
+                    <td>${apartment.apartment_name}</td>
+                    <td class="address-cell">${apartment.apartment_address}</td>
+                    <td>${apartment.admin_email}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-warning btn-sm" onclick="editApartment('${apartment.apartment_id}', '${apartment.apartment_name}', '${apartment.apartment_address}', '${apartment.admin_email}')">
+                                Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('${apartment.apartment_id}')">
+                                Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function editApartment(apartmentId, name, address, email) {
+            document.getElementById('editApartmentId').value = apartmentId;
+            document.getElementById('editApartmentName').value = name;
+            document.getElementById('editApartmentAddress').value = address;
+            document.getElementById('editAdminEmail').value = email;
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            document.getElementById('editForm').reset();
+        }
+
+        function confirmDelete(apartmentId) {
+            if (confirm(`Are you sure you want to delete apartment ${apartmentId}? This action cannot be undone.`)) {
+                handleDelete(apartmentId);
+            }
+        }
+
+        // Event handlers
+        async function handleSubmit(event) {
+            event.preventDefault();
+            setLoading(true);
+
+            const formData = new FormData(event.target);
+            const apartmentData = Object.fromEntries(formData.entries());
+
+            try {
+                await createApartment(apartmentData);
+                showAlert('Apartment created successfully!', 'success');
+                clearForm();
+                await loadApartments();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function handleEdit(event) {
+            event.preventDefault();
+            
+            const apartmentId = document.getElementById('editApartmentId').value;
+            const formData = new FormData(event.target);
+            const updateData = {};
+            
+            // Only include fields that have values
+            for (const [key, value] of formData.entries()) {
+                if (value.trim() !== '' && key !== 'editApartmentId') {
+                    updateData[key] = value;
+                }
+            }
+
+            try {
+                await updateApartment(apartmentId, updateData);
+                showAlert('Apartment updated successfully!', 'success');
+                closeEditModal();
+                await loadApartments();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function handleDelete(apartmentId) {
+            try {
+                await deleteApartment(apartmentId);
+                showAlert('Apartment deleted successfully!', 'success');
+                await loadApartments();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function loadApartments() {
+            try {
+                const apartments = await fetchApartments();
+                renderApartments(apartments);
+            } catch (error) {
+                showAlert('Failed to load apartments. Please refresh the page.', 'error');
+                document.getElementById('apartmentsTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <h3>Error loading apartments</h3>
+                            <p>Please check your connection and try again.</p>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up event listeners
+            document.getElementById('apartmentForm').addEventListener('submit', handleSubmit);
+            document.getElementById('editForm').addEventListener('submit', handleEdit);
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                const modal = document.getElementById('editModal');
+                if (event.target === modal) {
+                    closeEditModal();
+                }
+            });
+
+            // Load initial data
+            loadApartments();
+        });
+    </script>
+</body>
+</html>

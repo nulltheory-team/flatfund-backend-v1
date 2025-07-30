@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - USE_LOCAL_DB=${USE_LOCAL_DB:-false}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:yvnreddy2002@flatfund-db.ctqftasebvp9.ap-south-1.rds.amazonaws.com:5432/postgres}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./static:/app/static:ro
+    networks:
+      - flatfund-network
+
+networks:
+  flatfund-network:
+    driver: bridge
