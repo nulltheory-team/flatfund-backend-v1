@@ -432,7 +432,7 @@
     </div>
 
     <script>
-        console.log("Admin UI loaded"); const API_BASE_URL = 'https://flatfund.duckdns.org/api/v1/apartments/';
+        console.log("Admin UI loaded"); const API_BASE_URL = 'https://flatfund.duckdns.org/api/v1/apartments';
 
         // Utility functions
         function showAlert(message, type = 'info') {
@@ -464,7 +464,7 @@
         // API calls
         async function createApartment(apartmentData) {
             try {
-                const response = await fetch(API_BASE_URL, {
+                const response = await fetch(`${API_BASE_URL}/`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -488,7 +488,7 @@
             console.log("Fetching apartments from:", API_BASE_URL);
             console.log("Actual URL being fetched:", API_BASE_URL);
             try {
-                const url = API_BASE_URL + "?t=" + Date.now();
+                const url = API_BASE_URL + "/?t=" + Date.now();
                 console.log("Final URL with timestamp:", url);
                 const response = await fetch(url);
                 console.log("Response status:", response.status, response.statusText);
@@ -524,9 +524,9 @@
             }
         }
 
-        async function deleteApartment(apartmentId) {
+        async function deleteApartment(apartmentUuid) {
             try {
-                const response = await fetch(`${API_BASE_URL}/${apartmentId}`, {
+                const response = await fetch(`${API_BASE_URL}/uuid/${apartmentUuid}`, {
                     method: 'DELETE'
                 });
 
@@ -571,7 +571,7 @@
                             <button class="btn btn-warning btn-sm" onclick="editApartment('${apartment.apartment_id}', '${apartment.apartment_name}', '${apartment.apartment_address}', '${apartment.admin_email}')">
                                 Edit
                             </button>
-                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('${apartment.apartment_id}')">
+                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('${apartment.id}')">
                                 Delete
                             </button>
                         </div>

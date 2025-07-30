@@ -49,9 +49,23 @@ def update_apartment(
         )
     return apartment
 
+@router.delete("/uuid/{apartment_uuid}", response_model=schemas.ApartmentDeleted)
+def delete_apartment_by_uuid(apartment_uuid: str, db: Session = Depends(database.get_db)):
+    """Delete apartment by UUID for consistency"""
+    apartment = crud.delete_apartment_by_uuid(db, apartment_uuid)
+    if not apartment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Apartment with UUID {apartment_uuid} not found"
+        )
+    return schemas.ApartmentDeleted(
+        message="Apartment deleted successfully",
+        apartment_id=apartment.apartment_id
+    )
+
 @router.delete("/{apartment_id}", response_model=schemas.ApartmentDeleted)
 def delete_apartment(apartment_id: str, db: Session = Depends(database.get_db)):
-    """Delete apartment by apartment_id"""
+    """Delete apartment by apartment_id (legacy endpoint)"""
     apartment = crud.delete_apartment(db, apartment_id)
     if not apartment:
         raise HTTPException(

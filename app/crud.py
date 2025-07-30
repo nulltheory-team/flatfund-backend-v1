@@ -129,8 +129,26 @@ def update_apartment(db: Session, apartment_id: str, apartment_update: schemas.A
     return apartment
 
 
+def get_apartment_by_uuid(db: Session, apartment_uuid: str):
+    """Get apartment by UUID"""
+    return db.query(models.Apartment).filter(models.Apartment.id == apartment_uuid).first()
+
+
+def delete_apartment_by_uuid(db: Session, apartment_uuid: str):
+    """Delete apartment by UUID"""
+    # First check if apartment exists
+    apartment = get_apartment_by_uuid(db, apartment_uuid)
+    if not apartment:
+        return None
+    
+    # Delete the apartment
+    db.delete(apartment)
+    db.commit()
+    return apartment
+
+
 def delete_apartment(db: Session, apartment_id: str):
-    """Delete apartment by apartment_id"""
+    """Delete apartment by apartment_id (legacy - use delete_apartment_by_uuid for consistency)"""
     # First check if apartment exists
     apartment = get_apartment_by_id(db, apartment_id)
     if not apartment:
