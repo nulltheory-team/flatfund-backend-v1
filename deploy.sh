@@ -41,44 +41,42 @@ ssh -i "$KEY_FILE" "$SERVER_USER@$SERVER_IP" << EOF
     # Backup current deployment
     sudo cp -r $DEPLOY_PATH $DEPLOY_PATH.backup.\$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
     
-    # Stop and remove all containers and images
+    # Deploy new version
+    sudo cp -r $PACKAGE_NAME/* $DEPLOY_PATH/
+    
+    # Verify correct file structure
+    echo "📋 Verifying deployment structure..."
+    if [ -d "$DEPLOY_PATH/app" ] && [ -d "$DEPLOY_PATH/static" ]; then
+        echo "✅ Correct structure: app/ and static/ directories exist"
+    else
+        echo "❌ WARNING: Incorrect structure detected! Fixing..."
+        # Fix structure if needed
+        sudo mkdir -p $DEPLOY_PATH/app $DEPLOY_PATH/static
+        
+        # Move Python files to app/ if they're in root
+        sudo mv $DEPLOY_PATH/main.py $DEPLOY_PATH/app/ 2>/dev/null || true
+        sudo mv $DEPLOY_PATH/models.py $DEPLOY_PATH/app/ 2>/dev/null || true  
+        sudo mv $DEPLOY_PATH/crud.py $DEPLOY_PATH/app/ 2>/dev/null || true
+        sudo mv $DEPLOY_PATH/database.py $DEPLOY_PATH/app/ 2>/dev/null || true
+        sudo mv $DEPLOY_PATH/schemas.py $DEPLOY_PATH/app/ 2>/dev/null || true
+        sudo mv $DEPLOY_PATH/routers $DEPLOY_PATH/app/ 2>/dev/null || true
+        sudo touch $DEPLOY_PATH/app/__init__.py
+        
+        # Move static files to static/
+        sudo mv $DEPLOY_PATH/admin.html $DEPLOY_PATH/static/ 2>/dev/null || true
+        sudo mv $DEPLOY_PATH/favicon.ico $DEPLOY_PATH/static/ 2>/dev/null || true
+        
+        echo "✅ Structure fixed"
+    fi
+    
+    # Restart services
     cd $DEPLOY_PATH
-    echo "🛑 Stopping and removing existing containers..."
-    sudo docker-compose down --volumes --remove-orphans || true
-    
-    # Remove all flatfund related images to force rebuild
-    echo "🗑️  Removing cached Docker images..."
-    sudo docker images | grep flatfund | awk '{print \$3}' | sudo xargs docker rmi -f 2>/dev/null || true
-    sudo docker system prune -f || true
-    
-    # Deploy new version - ensure complete replacement
-    echo "📁 Deploying new files..."
-    sudo rm -rf $DEPLOY_PATH/static/* || true
-    sudo rm -rf $DEPLOY_PATH/app/* || true
-    sudo cp -r /tmp/$PACKAGE_NAME/* $DEPLOY_PATH/
-    sudo chown -R ubuntu:ubuntu $DEPLOY_PATH
-    
-    # Force complete rebuild without any cache
-    cd $DEPLOY_PATH
-    echo "🏗️  Building fresh Docker images (no cache)..."
-    sudo docker-compose build --no-cache --pull --force-rm
-    
-    # Start services
-    echo "🚀 Starting services..."
-    sudo docker-compose up -d
+    sudo docker-compose down
+    sudo docker-compose up --build -d
     
     # Check service status
-    echo "⏳ Waiting for services to start..."
-    sleep 15
+    sleep 5
     sudo docker-compose ps
-    
-    # Verify static files are updated
-    echo "📋 Verifying deployment..."
-    if grep -q "Quattrocento" $DEPLOY_PATH/static/admin.html; then
-        echo "✅ Static files updated successfully"
-    else
-        echo "⚠️  Warning: Static files may not be updated properly"
-    fi
     
     echo "✅ Deployment completed!"
     echo "🌐 API: https://flatfund.duckdns.org/api/v1/apartments/"

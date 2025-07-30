@@ -17,8 +17,8 @@ mkdir -p "$PACKAGE_DIR"
 
 # Copy application files
 echo "📋 Copying application files..."
-cp -r app/ "$PACKAGE_DIR/"
-cp -r static/ "$PACKAGE_DIR/"
+cp -r app "$PACKAGE_DIR/"
+cp -r static "$PACKAGE_DIR/"
 cp Dockerfile "$PACKAGE_DIR/"
 cp docker-compose.yml "$PACKAGE_DIR/"
 cp requirements.txt "$PACKAGE_DIR/"
