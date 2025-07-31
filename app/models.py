@@ -17,3 +17,4 @@ class Apartment(Base):
     total_flats = Column(Integer)
     water_bill_mode = Column(Integer, nullable=False, default=0)  # 0=Meter based, 1=Tanker based
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+

@@ -9,7 +9,7 @@ echo "🚀 FlatFund Deployment Script"
 echo "=============================="
 
 # Configuration
-SERVER_IP="3.110.126.142"
+SERVER_IP="3.111.80.201"
 SERVER_USER="ubuntu"
 KEY_FILE="flatfund-backend.pem"
 DEPLOY_PATH="/opt/flatfund"
