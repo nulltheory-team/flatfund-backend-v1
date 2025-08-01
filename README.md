@@ -1,6 +1,10 @@
 # FlatFund Backend Development
 
-## 🚀 Quick Start
+## � Documentation
+
+**🔗 [Complete API Documentation](./API_DOCUMENTATION.md)** - Comprehensive guide to all endpoints, requests, responses, and authentication flows.
+
+## �🚀 Quick Start
 
 ### Local Development
 ```bash
