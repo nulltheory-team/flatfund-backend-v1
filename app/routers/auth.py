@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Header
+from typing import Optional
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -10,11 +12,13 @@ import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
 from ..database import get_db
-from ..models import Apartment, User, OTPVerification, UserRole, FlatmateInvitation
+import secrets
+from ..models import Apartment, User, OTPVerification, UserRole, FlatmateInvitation, RefreshToken, Security
 from ..schemas import (
     SendOTPRequest, VerifyOTPRequest, AuthResponse, AssignTenantRequest, AssignTenantResponse,
     InviteFlatmateRequest, InviteFlatmateResponse, FlatmateSignupRequest, FlatmateSignupResponse,
-    SelectApartmentRequest, SelectApartmentResponse, LoginRequest, LoginResponse
+    SelectApartmentRequest, SelectApartmentResponse, LoginRequest, LoginResponse, RefreshTokenRequest, TokenResponse,
+    UpdateFlatmateDetailsRequest, UpdateFlatmateDetailsResponse, GetFlatmateDetailsResponse, SuggestedFlatDetails
 )
 
 # Load environment variables
@@ -25,7 +29,8 @@ router = APIRouter(prefix="/api/v1", tags=["authentication"])
 # JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days
+REFRESH_TOKEN_EXPIRE_DAYS = 60  # Long-lived refresh token
 
 # Brevo Configuration
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
@@ -1069,15 +1074,37 @@ def send_welcome_email(email: str, apartment_name: str, flat_number: str, flat_f
         return True
     except ApiException as e:
         print(f"Exception when calling SMTPApi->send_transac_email: {e}")
-        return False
+        raise HTTPException(status_code=500, detail="Failed to send welcome email")
 
-def create_access_token(data: dict):
-    """Create JWT access token"""
+def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_refresh_token(db: Session, user_id: int) -> str:
+    """Generate a secure opaque refresh token, store it, and return it."""
+    # Invalidate all old refresh tokens for this user for better security
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).update({"is_revoked": 1})
+
+    # Generate a new secure random token
+    token = secrets.token_hex(32)
+    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    db_refresh_token = RefreshToken(
+        token=token,
+        user_id=user_id,
+        expires_at=expires_at
+    )
+    db.add(db_refresh_token)
+    db.commit()
+    db.refresh(db_refresh_token)
+    
+    return token
 
 @router.post("/signin")
 async def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
@@ -1143,9 +1170,9 @@ async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
     ).first()
     
     if not apartment:
-        raise HTTPException(
-            status_code=404,
-            detail="Apartment not found"
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"status": False, "message": "Apartment not found"}
         )
     
     # Verify OTP
@@ -1158,9 +1185,23 @@ async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
     ).first()
     
     if not otp_record:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid or expired OTP"
+        # Check for specific reasons for failure for better client-side feedback
+        existing_otp = db.query(OTPVerification).filter(
+            OTPVerification.email == request.admin_email,
+            OTPVerification.apartment_id == request.apt_id,
+            OTPVerification.otp_code == request.otp
+        ).first()
+
+        if existing_otp and existing_otp.is_verified:
+            message = "OTP has already been used."
+        elif existing_otp and existing_otp.expires_at <= datetime.utcnow():
+            message = "OTP has expired. Please request a new one."
+        else:
+            message = "Invalid OTP. Please check the code and try again."
+
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"status": False, "message": message}
         )
     
     # Mark OTP as verified
@@ -1207,13 +1248,14 @@ async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
     
     # Create JWT token
     token_data = {
+        "sub": user.flat_id, # Use flat_id as subject for privacy
         "user_id": str(user.id),
         "apt_id": apartment.apartment_id,
         "apt_uuid": str(apartment.apartment_uuid),
-        "role": user.role.value,
-        "flat_id": user.flat_id  # Use flat_id instead of email for privacy
+        "role": user.role.value
     }
     access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(db=db, user_id=user.id)
     
     # Check if user details are filled
     is_all_user_details_filled = bool(
@@ -1223,6 +1265,21 @@ async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
         user.flat_floor is not None
     )
     
+    # Check if there's an invitation for this user that could provide flat details
+    suggested_flat_details = None
+    if not is_all_user_details_filled:
+        # Look for any invitation (used or unused) for this user to get flat suggestions
+        invitation = db.query(FlatmateInvitation).filter(
+            FlatmateInvitation.apartment_id == request.apt_id,
+            FlatmateInvitation.invited_email == request.admin_email
+        ).order_by(FlatmateInvitation.created_at.desc()).first()
+        
+        if invitation:
+            suggested_flat_details = {
+                "flat_number": invitation.flat_number,
+                "flat_floor": invitation.floor
+            }
+    
     response_data = {
         "apt_id": apartment.apartment_id,
         "apt_uuid": str(apartment.apartment_uuid),
@@ -1230,15 +1287,68 @@ async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
         "flat_uuid": str(user.flat_uuid),
         "user_id": f"user_{user.id}",
         "is_all_user_details_filled": is_all_user_details_filled,
-        "role": user.role.value
+        "role": user.role.value,
+        "suggested_flat_details": suggested_flat_details  # 🆕 NEW FIELD
     }
     
     return AuthResponse(
         status=True,
         message="OTP verified successfully",
-        token=access_token,
+        token=TokenResponse(access_token=access_token, refresh_token=refresh_token),
         data=response_data
     )
+
+@router.post("/token/refresh", response_model=TokenResponse)
+async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """
+    Refresh the access token using a secure, opaque refresh token.
+    Implements token rotation for enhanced security.
+    """
+    token = request.refresh_token
+    
+    # Find the refresh token in the database
+    db_refresh_token = db.query(RefreshToken).filter(
+        RefreshToken.token == token,
+        RefreshToken.is_revoked == 0,
+        RefreshToken.expires_at > datetime.utcnow()
+    ).first()
+
+    if not db_refresh_token:
+        # This could be a sign of a compromised token being reused.
+        # For extra security, you could log this event.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # --- Token Rotation ---
+    # Invalidate the used refresh token
+    db_refresh_token.is_revoked = 1
+    db.commit()
+
+    user = db_refresh_token.user
+    if not user:
+        # This case should be rare due to database foreign key constraints
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found for the given token",
+        )
+
+    # Issue a new access token
+    token_data = {
+        "sub": user.flat_id,
+        "user_id": str(user.id),
+        "apt_id": user.apartment_id,
+        "apt_uuid": str(user.apartment_uuid),
+        "role": user.role.value,
+    }
+    new_access_token = create_access_token(data=token_data)
+    
+    # Issue a new refresh token
+    new_refresh_token = create_refresh_token(db=db, user_id=user.id)
+
+    return TokenResponse(access_token=new_access_token, refresh_token=new_refresh_token)
 
 @router.put("/user/{user_id}/role")
 async def update_user_role(
@@ -1857,52 +1967,6 @@ def send_invitation_email(email: str, apartment_name: str, flat_id: str):
                 background: rgba(255, 255, 255, 0.95);
                 backdrop-filter: blur(20px);
                 border-radius: 24px;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                overflow: hidden;
-            }}
-            
-            .header {{
-                background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-                padding: 40px 30px;
-                text-align: center;
-                position: relative;
-                overflow: hidden;
-            }}
-            
-            .logo {{
-                font-size: 32px;
-                font-weight: 700;
-                color: white;
-                margin-bottom: 10px;
-            }}
-            
-            .header-subtitle {{
-                color: rgba(255, 255, 255, 0.9);
-                font-size: 16px;
-                font-weight: 500;
-            }}
-            
-            .content {{
-                padding: 40px 30px;
-                text-align: center;
-            }}
-            
-            .greeting {{
-                font-size: 24px;
-                font-weight: 600;
-                color: #1F2937;
-                margin-bottom: 16px;
-            }}
-            
-            .message {{
-                font-size: 16px;
-                color: #6B7280;
-                margin-bottom: 32px;
-                line-height: 1.7;
-            }}
-            
-            .apartment-info {{
                 background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
                 border-radius: 16px;
                 padding: 24px;
@@ -2017,3 +2081,115 @@ def send_invitation_email(email: str, apartment_name: str, flat_id: str):
     except ApiException as e:
         print(f"Exception when calling SMTPApi->send_transac_email: {e}")
         raise HTTPException(status_code=500, detail="Failed to send invitation email")
+
+
+def get_current_user_from_token(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """
+    Get current user from JWT token in Authorization header
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header missing")
+    
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header format")
+    
+    token = authorization.split(" ")[1]
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        flat_id: str = payload.get("sub")
+        if flat_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    user = db.query(User).filter(User.flat_id == flat_id).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    return user
+
+
+@router.put("/updateflatmatedetails", response_model=UpdateFlatmateDetailsResponse)
+def update_flatmate_details(
+    request: UpdateFlatmateDetailsRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user details (name, phone number, flat number, and flat floor) for authenticated user
+    """
+    # Get current user from JWT token
+    current_user = get_current_user_from_token(authorization, db)
+    
+    # Update user details
+    current_user.user_name = request.user_name
+    current_user.user_phone_number = request.user_phone_number
+    
+    # Update flat details if provided
+    if request.flat_number is not None:
+        current_user.flat_number = request.flat_number
+    if request.flat_floor is not None:
+        current_user.flat_floor = request.flat_floor
+    
+    # Check if all required details are now filled
+    is_all_user_details_filled = bool(
+        current_user.user_name and 
+        current_user.user_phone_number and 
+        current_user.flat_number is not None and 
+        current_user.flat_floor is not None
+    )
+    
+    try:
+        db.commit()
+        db.refresh(current_user)
+        
+        return UpdateFlatmateDetailsResponse(
+            message="User details updated successfully",
+            user_name=current_user.user_name,
+            user_phone_number=current_user.user_phone_number,
+            flat_number=current_user.flat_number,
+            flat_floor=current_user.flat_floor,
+            is_all_user_details_filled=is_all_user_details_filled
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update user details")
+
+
+@router.get("/flatmatedetails", response_model=GetFlatmateDetailsResponse)
+def get_flatmate_details(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user details from JWT token
+    """
+    # Get current user from JWT token
+    current_user = get_current_user_from_token(authorization, db)
+    
+    # Get apartment details
+    apartment = db.query(Apartment).filter(
+        Apartment.apartment_id == current_user.apartment_id
+    ).first()
+    
+    if not apartment:
+        raise HTTPException(status_code=404, detail="Apartment not found")
+    
+    return GetFlatmateDetailsResponse(
+        user_name=current_user.user_name,
+        user_phone_number=current_user.user_phone_number,
+        user_email=current_user.user_email_id,
+        flat_id=current_user.flat_id,
+        apartment_name=apartment.apartment_name,
+        apartment_address=apartment.apartment_address,
+        flat_number=current_user.flat_number,
+        flat_floor=current_user.flat_floor,
+        role=current_user.role.value,
+        is_all_user_details_filled=bool(
+            current_user.user_name and 
+            current_user.user_phone_number and 
+            current_user.flat_number is not None and 
+            current_user.flat_floor is not None
+        )
+    )

@@ -1,7 +1,8 @@
-from sqlalchemy import Column, String, Integer, DateTime, Enum
+from sqlalchemy import Column, String, Integer, DateTime, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy import TypeDecorator, CHAR
+from sqlalchemy.orm import relationship
 import uuid
 import enum
 from .database import Base
@@ -100,4 +101,26 @@ class FlatmateInvitation(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_revoked = Column(Integer, default=0)  # 0=Active, 1=Revoked
+
+    user = relationship("User")
+
+class Security(Base):
+    __tablename__ = "security"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    apartment_id = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    phone_number = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

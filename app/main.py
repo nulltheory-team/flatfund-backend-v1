@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from . import models, database
-from .routers import apartment, auth
+from .routers import apartment, auth, security
 from .swagger_config import configure_swagger_ui, swagger_ui_parameters, swagger_ui_custom_css
 
 # Create DB tables  
@@ -82,6 +82,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Include routers
 app.include_router(apartment.router)
 app.include_router(auth.router)
+app.include_router(security.router)
 
 @app.get("/", tags=["Root"])
 def root():

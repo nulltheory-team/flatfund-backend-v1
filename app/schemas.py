@@ -54,11 +54,23 @@ class VerifyOTPRequest(BaseModel):
     admin_email: EmailStr
     otp: str
 
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
 class AuthResponse(BaseModel):
     status: bool
     message: str
-    token: str
+    token: TokenResponse
     data: dict
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+class TokenData(BaseModel):
+    user_id: Optional[str] = None
+
 
 class UserCreate(BaseModel):
     flat_id: str
@@ -156,3 +168,56 @@ class LoginResponse(BaseModel):
     status: bool
     message: str
     expires_in_minutes: int
+
+# Security Schemas
+class SecurityCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    phone_number: str = Field(..., min_length=10, max_length=15)
+
+class SecurityResponse(BaseModel):
+    id: int
+    apartment_id: str
+    name: str
+    phone_number: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class SecurityListResponse(BaseModel):
+    status: bool
+    message: str
+    data: list[SecurityResponse]
+
+# Suggested Flat Details Schema (for OTP response)
+class SuggestedFlatDetails(BaseModel):
+    flat_number: Optional[str] = None
+    flat_floor: Optional[str] = None
+
+# Update User Details Schemas
+class UpdateFlatmateDetailsRequest(BaseModel):
+    user_name: str = Field(..., min_length=1, max_length=100)
+    user_phone_number: str = Field(..., min_length=10, max_length=15)
+    flat_number: Optional[str] = Field(None, max_length=20)
+    flat_floor: Optional[str] = Field(None, max_length=10)
+
+class UpdateFlatmateDetailsResponse(BaseModel):
+    message: str
+    user_name: str
+    user_phone_number: str
+    flat_number: Optional[str]
+    flat_floor: Optional[str]
+    is_all_user_details_filled: bool
+
+class GetFlatmateDetailsResponse(BaseModel):
+    user_name: Optional[str]
+    user_phone_number: Optional[str]
+    user_email: str
+    flat_id: str
+    apartment_name: str
+    apartment_address: str
+    flat_number: Optional[str]
+    flat_floor: Optional[str]
+    role: str
+    is_all_user_details_filled: bool
